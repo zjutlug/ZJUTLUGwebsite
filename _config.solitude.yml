@@ -759,7 +759,6 @@ extends:
   body:
     - <script src="/schedule/schedule.js"></script>
     - <script src="https://open.lightxi.com/unpkg/chinese-lunar@0.1.4/lib/chinese-lunar.js"></script>
-    - <script src="/js/snow.js"></script>
   #  - <script src="https://cdn.bootcdn.net/ajax/libs/pace/1.2.4/pace.min.js"></script>
 # --------------------------- end ---------------------------
 

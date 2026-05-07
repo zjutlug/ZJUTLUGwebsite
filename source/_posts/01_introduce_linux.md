@@ -5,6 +5,7 @@ tags: [活动,课程宣讲]
 cover: /img/defaultcover.webp
 ---
 # 从入门到入土的Linux架设MC服的第一课：Linux极速入门
+
 ![从入门到入土](/img/post/01_introduce_linux/01.webp)
 
 ## Linux 是什么
@@ -89,16 +90,17 @@ graph LR
 
 Linux 不只是服务器上的黑框，也可以被折腾成很有个人风格的桌面环境。窗口管理器、状态栏、终端、字体、主题、壁纸都可以自己换，甚至可以把整个操作习惯改成自己喜欢的样子。
 
-![Linux 桌面美化截图 1](/img/post/01_introduce_linux/desktop-beauty-01.webp)
-![Linux 桌面美化截图 2](/img/post/01_introduce_linux/desktop-beauty-02.webp)
-![Linux 桌面美化截图 3](/img/post/01_introduce_linux/desktop-beauty-03.webp)
-![Linux 桌面美化截图 4](/img/post/01_introduce_linux/desktop-beauty-04.webp)
-![Linux 桌面美化截图 5](/img/post/01_introduce_linux/desktop-beauty-05.webp)
-![Linux 桌面美化截图 6](/img/post/01_introduce_linux/desktop-beauty-06.webp)
-![Linux 桌面美化截图 7](/img/post/01_introduce_linux/desktop-beauty-07.webp)
+![by 司徒和丞相](/img/post/01_introduce_linux/desktop-beauty-01.webp)
+![by Fridayssheep](/img/post/01_introduce_linux/desktop-beauty-02.webp)
+![by Red](/img/post/01_introduce_linux/desktop-beauty-03.webp)
+![by 钠的水溶液](/img/post/01_introduce_linux/desktop-beauty-04.webp)
+![by 楠5210](/img/post/01_introduce_linux/desktop-beauty-05.webp)
+![by Fridayssheep](/img/post/01_introduce_linux/desktop-beauty-06.webp)
+![by Fridayssheep](/img/post/01_introduce_linux/desktop-beauty-07.webp)
 
 ### 自托管服务
 博客、网盘、NAS、MC 服务器。
+
 
 学会 Linux 之后，很多服务都可以自己部署在服务器、NAS、开发板或者旧电脑上。它不一定是给别人看的大项目，也可以只是一个自己用起来顺手的小工具。
 

@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+
 jobs:
   build-check:
     runs-on: ubuntu-latest
@@ -21,8 +22,13 @@ jobs:
           node-version: '20' 
           cache: 'npm'      
 
+      - name: Install Theme
+        run: |
+          mkdir -p themes
+          git clone -b dev https://github.com/everfu/hexo-theme-solitude.git themes/solitude
+
       - name: Install Dependencies
         run: npm install
 
       - name: Hexo Generate Check
-        run: npx hexo generate 
+        run: npx hexo generate

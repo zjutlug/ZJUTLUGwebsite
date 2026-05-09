@@ -2,7 +2,7 @@
 title: 第一课 Linux极速入门
 date: 2026-05-06 11:11:26
 tags: [活动,课程宣讲]
-cover: /img/post/01_introduce_linux/01.webp
+cover: /img/post/01_introduce_linux/cover.webp
 ---
 # 从入门到入土的Linux架设MC服的第一课：Linux极速入门
 

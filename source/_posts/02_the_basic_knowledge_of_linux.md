@@ -8,31 +8,7 @@ cover: /img/defaultcover.webp
 
 在第一课中，我们已经完成了 Linux 入门、终端基础、下载和解压、Java 准备等内容。
 
-这一课先不急着正式开服。因为当我们真的要把一个 Minecraft 服务端长期跑起来时，很快会遇到几个比“怎么启动 jar”更基础的问题：
-
-- 为什么启动脚本 `./start.sh` 会提示权限不够？
-- 为什么不建议一直用 `root` 跑服务端？
-- 为什么我自己能用 `localhost:25565` 进服，别人却进不来？
-- 为什么云服务器、防火墙、安全组总是和“连不上服务器”扯在一起？
-- 为什么以后管理服务器通常要用 SSH，而不是一直坐在服务器前面？
-
-这节课我们就来补上这些基础知识：用户、权限、SSH、网络和防火墙。
-
-## 今天我们要做什么
-
-这一节课结束时，大家至少需要知道：
-
-- Linux 为什么要区分普通用户和 `root`
-- 文件权限里的 `rwx` 是什么意思
-- 怎么用 `chmod` 给启动脚本加执行权限
-- SSH 是什么，以及远程登录命令长什么样
-- `localhost`、局域网 IP、公网 IP 有什么区别
-- 端口是什么，为什么 MC 默认端口是 `25565`
-- 防火墙为什么会导致“服务明明开了，但是别人连不上”
-
-用一句话概括：
-
-> 上节课我们让 Linux 能跑 Java，这节课要让 Linux 里的服务能被管理、能被保护、能被连接。
+这一节课我们将学习关于Linux用户、文件权限、SSH、IP和端口等基础知识。
 
 ## Linux 的用户
 
@@ -93,48 +69,21 @@ gid=1000(fridayssheep)
 组=1000(fridayssheep),24(cdrom),44(video),988(docker)
 ```
 
-表示这个用户除了自己的主用户组以外，还属于 `cdrom`、`video`、`docker` 等附加用户组。不同系统语言环境下，这里可能显示为 `groups=`，也可能显示为 `组=`。
+表示这个用户除了自己的主用户组以外，还属于 `cdrom`、`video`、`docker` 等附加用户组。
 
 ### UID 和 GID
 
-用户名是可以改的，但 UID 才是系统真正用来识别用户的东西。文件系统里记录文件归属时，本质上记录的也是 UID 和 GID。
+在Linux系统中，UID（User ID） 和 GID（Group ID） 是用户与用户组的唯一数字标识符，系统通过它们来进行身份识别与权限控制，而不是直接识别用户名或组名。
 
-平时我们看到：
+> UID 用于标识单个用户：
+> 0：超级用户（root），拥有最高权限。
+> 1~999（CentOS7为1~1000）：系统或虚拟用户，用于运行服务，不允许直接登录。
+> 1000及以上：普通用户。
 
-```bash
-ls -l
-```
+> GID 用于标识用户组：
+> 每个用户在创建时会生成一个与用户名相同的基本组（GID与UID相同）。
+> 用户还可以加入多个附加组，以便共享文件或权限。
 
-输出里可能是：
-
-```text
--rw-r--r-- 1 fridayssheep fridayssheep 42 May 17 server.properties
-```
-
-这里显示的是用户名和用户组名。但系统内部真正关心的是：
-
-```text
-这个文件属于 uid=1000 的用户
-这个文件属于 gid=1000 的用户组
-```
-
-可以用下面这个命令直接看数字编号：
-
-```bash
-ls -ln
-```
-
-输出可能类似：
-
-```text
--rw-r--r-- 1 1000 1000 42 May 17 server.properties
-```
-
-所以 UID/GID 的意义是：
-
-- UID 决定“这个文件属于哪个用户”
-- GID 决定“这个文件属于哪个用户组”
-- 文件权限里的“用户、用户组、其他人”就是根据这些归属关系判断的
 
 ### 主用户组和附加用户组
 
@@ -151,8 +100,6 @@ ls -ln
 | `video` | 允许访问显卡、显示相关设备 |
 | `audio` | 允许访问音频设备 |
 | `plugdev` | 允许访问部分可插拔设备 |
-
-这也是为什么我们常说“把用户加入某个组”。它的意思不是改用户名，而是给这个用户增加一类权限。
 
 用户组可以理解为“给一批用户统一分配权限”的方式。比如一台服务器上有几个人一起管理 MC 服务端，可以把他们都放进同一个 `mc` 用户组，然后让服务端目录属于这个组。这样不需要把所有人都变成 `root`，也能让他们一起维护同一份文件。
 
@@ -177,7 +124,56 @@ groups 用户名
 
 `/etc/passwd` 记录用户的基本信息，`/etc/group` 记录用户组信息。虽然名字叫 `passwd`，现代 Linux 系统里它通常不直接保存密码明文，密码哈希一般在 `/etc/shadow` 里，并且需要管理员权限才能读取。
 
-课堂上不需要手动编辑这些文件。创建用户、创建组、修改用户组时，优先使用系统命令。
+```bash
+╭─[fridayssheep@allinone:~]—{^o^}—(17:21:24)—(2.630s)
+╰─$> sudo cat /etc/passwd
+[sudo] fridayssheep 的密码：
+root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin
+sys:x:3:3:sys:/dev:/usr/sbin/nologin
+sync:x:4:65534:sync:/bin:/bin/sync
+games:x:5:60:games:/usr/games:/usr/sbin/nologin
+man:x:6:12:man:/var/cache/man:/usr/sbin/nologin
+lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin
+mail:x:8:8:mail:/var/mail:/usr/sbin/nologin
+news:x:9:9:news:/var/spool/news:/usr/sbin/nologin
+uucp:x:10:10:uucp:/var/spool/uucp:/usr/sbin/nologin
+proxy:x:13:13:proxy:/bin:/usr/sbin/nologin
+www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin
+backup:x:34:34:backup:/var/backups:/usr/sbin/nologin
+list:x:38:38:Mailing List Manager:/var/list:/usr/sbin/nologin
+irc:x:39:39:ircd:/run/ircd:/usr/sbin/nologin
+_apt:x:42:65534::/nonexistent:/usr/sbin/nologin
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+systemd-network:x:998:998:systemd Network Management:/:/usr/sbin/nologin
+dhcpcd:x:100:65534:DHCP Client Daemon:/usr/libexec:/bin/false
+tss:x:101:103:TPM software stack:/var/lib/tpm:/bin/false
+systemd-coredump:x:991:991:systemd Core Dumper:/:/usr/sbin/nologin
+systemd-timesync:x:990:990:systemd Time Synchronization:/:/usr/sbin/nologin
+messagebus:x:989:989:System Message Bus:/nonexistent:/usr/sbin/nologin
+sshd:x:988:65534:sshd user:/run/sshd:/usr/sbin/nologin
+dnsmasq:x:999:65534:dnsmasq:/var/lib/misc:/usr/sbin/nologin
+avahi:x:102:107:Avahi mDNS daemon:/run/avahi-daemon:/usr/sbin/nologin
+speech-dispatcher:x:103:29:Speech Dispatcher:/run/speech-dispatcher:/bin/false
+usbmux:x:104:46:usbmux daemon:/var/lib/usbmux:/usr/sbin/nologin
+cups-pk-helper:x:105:108:user for cups-pk-helper service:/nonexistent:/usr/sbin/nologin
+fwupd-refresh:x:987:987:Firmware update daemon:/var/lib/fwupd:/usr/sbin/nologin
+sddm:x:106:110:Simple Desktop Display Manager:/var/lib/sddm:/bin/false
+saned:x:107:111::/var/lib/saned:/usr/sbin/nologin
+geoclue:x:108:112::/var/lib/geoclue:/usr/sbin/nologin
+polkitd:x:986:986:User for polkitd:/:/usr/sbin/nologin
+rtkit:x:109:113:RealtimeKit:/proc:/usr/sbin/nologin
+colord:x:110:114:colord colour management daemon:/var/lib/colord:/usr/sbin/nologin
+fridayssheep:x:1000:1000:Fridayssheep,,,:/home/fridayssheep:/bin/bash
+_flatpak:x:111:115:Flatpak system-wide installation helper:/nonexistent:/usr/sbin/nologin
+pipewire:x:983:109:system user for pipewire:/nonexistent:/usr/sbin/nologin
+Debian-exim:x:112:116::/var/spool/exim4:/usr/sbin/nologin
+_dhcpcd:x:980:980:DHCP Client Daemon:/var/lib/dhcpcd:/sbin/nologin
+╭─[fridayssheep@allinone:~]—{^o^}—(17:21:30)—(2.814s)
+╰─$>
+```
+
 
 创建一个用户组：
 
@@ -200,25 +196,10 @@ sudo usermod -aG mc sheep
 
 修改用户组后，通常需要重新登录，新的组权限才会完全生效。
 
-如果执行：
-
-```bash
-sudo whoami
-```
-
-输出一般会变成：
-
-```text
-root
-```
-
-这说明 `sudo` 会让我们临时用管理员权限执行后面的命令。
 
 ### root 和 sudo
 
-`root` 是 Linux 里的最高权限用户。它可以安装软件、修改系统配置、删除系统文件，也可以改其他用户的文件。安装软件、更新系统、修改系统服务时需要管理员权限。
-
-这就是为什么很多教程里会出现：
+`root` 是 Linux 里的最高权限用户。它可以安装软件、修改系统配置、删除系统文件，也可以改其他用户的文件。安装软件、更新系统、修改系统服务时需要管理员权限。例如：
 
 ```bash
 sudo apt update
@@ -234,9 +215,9 @@ sudo apt install vim fastfetch
 | `su - 用户名` | 切换到另一个用户 | 目标用户的密码 |
 | `su -` | 切换到 root | root 的密码 |
 
-`sudo` 不是“登录 root 用户”，而是让一个有 sudo 权限的普通用户临时以管理员身份做事。这个普通用户必须在 `sudo`、`wheel` 等管理员用户组里，或者被写进 sudoers 配置中。
+`sudo` 意为让有 sudo 权限的普通用户临时以管理员身份做事。这个普通用户必须在 `sudo`、`wheel` 等管理员用户组里，或者被写进 sudoers 配置中。
 
-`su` 则是 switch user，它更像是“切换登录到另一个用户”。所以 `su - mc` 通常会要求输入 `mc` 这个用户的密码，而不是你当前用户的密码。
+`su` 则是 switch user，它更像是“切换登录到另一个用户”。所以 `su - mc` 通常会要求输入 `mc` 这个用户的密码，而不是当前用户的密码。
 
 在 Ubuntu、Debian、WSL Ubuntu 等常见环境里，安装系统时创建的第一个普通用户通常拥有 `sudo` 权限，但 `root` 账户的密码默认可能是锁定或未设置的。此时你可以使用：
 
@@ -245,10 +226,10 @@ sudo apt update
 sudo -i
 ```
 
-但直接使用：
+但直接使用一下命令输入用户密码通常不正确：
 
 ```bash
-su -
+su
 ```
 
 很多发行版默认不鼓励直接用 root 密码登录，因此这个密码通常是随机密码。需要管理员权限时，请优先使用 `sudo`。
@@ -270,44 +251,43 @@ Administrator. It usually boils down to these three things:
     #3) 权力越大,责任越大。
 ```
 
-比如以后开服时，比较好的习惯是：
+> 比如以后开服时，比较好的习惯是：
+>- 用 `sudo` 安装 Java、创建用户、配置防火墙
+>- 用普通用户管理服务端文件
+>- 不长期使用 `root` 跑 Minecraft 服务端
+>
+>可以创建一个专门用于开服的用户：
+>```bash
+>sudo adduser mc
+>```
+>
+>切换到这个用户：
+>
+>```bash
+>su - mc
+>```
+>
+>如果不想输入 `mc` 用户的密码，也可以用当前用户的 sudo 权限切换过去：
+>
+>```bash
+>sudo -iu mc
+>```
+>
+>确认当前身份：
+>
+>```bash
+>whoami
+>pwd
+>```
+>
+>这样以后服务端目录可以放在这个用户自己的家目录里，例如：
+>
+>```bash
+>/home/mc/server
+>```
+## Linux的文件权限
 
-- 用 `sudo` 安装 Java、创建用户、配置防火墙
-- 用普通用户管理服务端文件
-- 不长期使用 `root` 跑 Minecraft 服务端
-
-可以创建一个专门用于开服的用户：
-
-```bash
-sudo adduser mc
-```
-
-切换到这个用户：
-
-```bash
-su - mc
-```
-
-如果不想输入 `mc` 用户的密码，也可以用当前用户的 sudo 权限切换过去：
-
-```bash
-sudo -iu mc
-```
-
-再确认当前身份：
-
-```bash
-whoami
-pwd
-```
-
-这样以后服务端目录可以放在这个用户自己的家目录里，例如：
-
-```bash
-/home/mc/server
-```
-
-## 文件属于谁
+### 文件的归属
 
 在 Linux 中，一个文件通常有两个归属信息：
 
@@ -324,19 +304,30 @@ ls -l
 
 例如：
 
-```text
--rw-r--r-- 1 sheep sheep 42 May 17 server.properties
+```bash
+╭─[fridayssheep@allinone:~/音/Tell Your World]—{^o^}—(17:26:42)—(11ms)
+╰─$> ls -l
+总计 32980
+-rw-r--r-- 1 fridayssheep fridayssheep 33566082  1月 4日 02:49 '初音ミク、DECO 27、livetune-Tell Your World.flac'
+-rw-r--r-- 1 fridayssheep fridayssheep   152197 12月 7日 16:12 '初音ミク、DECO 27、livetune-Tell Your World.jpg'
+-rw-r--r-- 1 fridayssheep fridayssheep     1868 11月28日 13:27 '初音ミク、DECO 27、livetune-Tell Your World.lrc'
+drwxr-xr-x 1 fridayssheep fridayssheep      524  1月26日 02:28 '@eaDir'/
+-rw-r--r-- 1 fridayssheep fridayssheep    43520 12月 9日 23:19  Thumbs.db
 ```
 
-这里两个 `sheep` 分别表示：
+这里两个 `fridayssheep` 分别表示：
 
-- 第一个 `sheep`：文件所属用户
-- 第二个 `sheep`：文件所属用户组
+- 第一个 `fridayssheep`：文件所属用户
+- 第二个 `fridayssheep`：文件所属用户组
 
 如果一个文件属于 `root`，普通用户可能就不能直接修改它。比如：
 
-```text
--rw-r--r-- 1 root root 42 May 17 server.properties
+```bash
+╭─[fridayssheep@allinone:~/音/Tell Your World]—{^o^}—(17:26:45)—(9ms)
+╰─$> ls -l /etc/fstab
+-rw-r--r-- 1 root root 901  5月 5日 19:48 /etc/fstab
+╭─[fridayssheep@allinone:~/音/Tell Your World]—{^o^}—(17:27:29)—(10ms)
+╰─$>
 ```
 
 这时普通用户编辑它就可能遇到权限问题。
@@ -347,16 +338,20 @@ ls -l
 sudo chown -R mc:mc /home/mc/server
 ```
 
-这里的 `-R` 表示递归处理目录里的所有文件。使用前要确认路径，不要随手对不熟悉的目录执行递归操作。
+使用前要确认路径，**不要**随手对不熟悉的目录执行递归操作。
 
-## rwx 是什么
+### rwx 是什么
 
 继续看 `ls -l` 的输出。
 
 假设我们看到这样一行：
-
-```text
--rwxr-xr-- 1 sheep sheep 1234 May 17 start.sh
+```bash
+╭─[fridayssheep@allinone:~/音/愛言葉V]—{^o^}—(17:29:03)—(6ms)
+╰─$> ls -l
+总计 32176
+-rw-rw-r-- 1 fridayssheep fridayssheep 31010196  2月16日 12:20 'DECO_27 - 愛言葉V.flac'
+-rw-rw-r-- 1 fridayssheep fridayssheep  1925845  2月16日 12:20 'DECO_27 - 愛言葉V.jpg'
+-rw-rw-r-- 1 fridayssheep fridayssheep     5977  2月16日 12:20 'DECO_27 - 愛言葉V.lrc'
 ```
 
 最前面的部分可以拆成这样：
@@ -403,18 +398,11 @@ r--
 
 表示只能读，不能写，也不能执行。
 
-对普通文件来说，`x` 表示这个文件能不能被当作程序或脚本执行。对目录来说，`x` 稍微特殊一点，它表示能不能进入这个目录。
+对普通文件来说，`x` 表示这个文件能不能被当作程序或脚本执行。对目录来说，`x` 表示能不能进入这个目录。
 
-## 为什么脚本不能直接运行
+### 脚本的执行
 
 我们做一个小实验。
-
-先创建一个临时目录：
-
-```bash
-mkdir -p ~/mc-demo
-cd ~/mc-demo
-```
 
 写一个简单脚本：
 
@@ -425,28 +413,23 @@ echo 'echo server starting' > start.sh
 查看它的权限：
 
 ```bash
-ls -l
+╭─[fridayssheep@allinone:~/文/test]—{>_<:130}—(17:31:46)—(9ms)
+╰─$> ls -l
+总计 4
+-rw-rw-r-- 1 fridayssheep fridayssheep 21  5月12日 17:31 start.sh
+╭─[fridayssheep@allinone:~/文/test]—{^o^}—(17:31:47)—(11ms)
+╰─$>
 ```
 
-你可能会看到类似：
-
-```text
--rw-r--r-- 1 sheep sheep 21 May 17 start.sh
-```
-
-这个文件可以读、可以写，但没有 `x`。所以直接运行：
+这个文件可以读、可以写，但没有 `x`。所以直接运行会提示权限不足：
 
 ```bash
-./start.sh
+╭─[fridayssheep@allinone:~/文/test]—{^o^}—(17:31:47)—(11ms)
+╰─$> ./start.sh
+-bash: ./start.sh: 权限不够
+╭─[fridayssheep@allinone:~/文/test]—{>_<:126}—(17:32:03)—(8ms)
+╰─$>
 ```
-
-可能会报权限不足：
-
-```text
-Permission denied
-```
-
-这不是文件不存在，也不是 shell 坏了，而是这个文件没有执行权限。
 
 给它加上执行权限：
 
@@ -457,34 +440,30 @@ chmod +x start.sh
 再看一次：
 
 ```bash
-ls -l
-```
-
-现在应该能看到 `x` 了：
-
-```text
--rwxr-xr-x 1 sheep sheep 21 May 17 start.sh
+╭─[fridayssheep@allinone:~/文/test]—{^o^}—(17:32:42)—(14ms)
+╰─$> ls -l
+总计 4
+-rwxrwxr-x 1 fridayssheep fridayssheep 21  5月12日 17:31 start.sh*
+╭─[fridayssheep@allinone:~/文/test]—{^o^}—(17:32:45)—(10ms)
+╰─$>
 ```
 
 再次执行：
 
 ```bash
-./start.sh
+╭─[fridayssheep@allinone:~/文/test]—{>_<:130}—(17:33:12)—(10ms)
+╰─$> ./start.sh
+server starting
+╭─[fridayssheep@allinone:~/文/test]—{^o^}—(17:33:12)—(11ms)
+╰─$>
 ```
+现在它就能被当作脚本执行了。
+### 使用chmod修改权限
 
-这次就能运行了。
-
-以后我们写 MC 启动脚本时，经常会用到这个命令：
-
-```bash
-chmod +x start.sh
-```
-
-## chmod 的符号写法
-
+#### chmod 的符号写法
 `chmod` 用来修改文件权限。对刚入门的人来说，符号写法比较直观。
 
-给所有人增加执行权限：
+给所有人增加执行权限:
 
 ```bash
 chmod +x start.sh
@@ -528,9 +507,9 @@ chmod u=rw,g=r,o= server.properties
 
 表示所有者可读写，用户组只读，其他人没有权限。
 
-## chmod 的数字写法
+#### chmod 的数字写法
 
-很多教程里还会看到这样的写法：
+我们还会看到这样的写法：
 
 ```bash
 chmod 755 start.sh
@@ -546,6 +525,10 @@ r = 4
 w = 2
 x = 1
 ```
+>`rwx` 可以看作三位二进制数，每位对应一个权限：
+>- `r`（读）对应二进制的第一位，值为 4（2^2）
+>- `w`（写）对应二进制的第二位，值为 2（2^1）
+>- `x`（执行）对应二进制的第三位，值为 1（2^0）
 
 把需要的权限加起来：
 
@@ -597,7 +580,7 @@ chmod 644 server.properties
 
 不要为了省事给所有文件都 `chmod 777`。`777` 表示所有人都能读、写、执行，问题也许暂时消失了，但权限边界也一起消失了。
 
-## SSH 是什么
+## 使用SSH以远程管理服务器
 
 到目前为止，我们都默认 Linux 环境就在自己电脑上。但真正开服时，服务器可能在很多地方：
 
@@ -633,16 +616,78 @@ ssh root@1.2.3.4
 
 连上之后，你看到的终端就不是本机的终端，而是远程服务器的终端。你在里面执行的 `ls`、`cd`、`java -version`，都是在远程服务器上执行。
 
-## 第一次 SSH 登录
+### 配置 SSH
 
-第一次连接一台新服务器时，SSH 可能会显示类似提示：
+如果这台机器要被别人通过 SSH 连进来，需要安装 SSH 服务端。Debian / Ubuntu 系可以安装 `openssh-server`：
+
+```bash
+sudo apt update
+sudo apt install openssh-server
+```
+
+查看 SSH 服务状态：
+
+```bash
+systemctl status ssh
+```
+
+如果没有启动，可以执行：
+
+```bash
+sudo systemctl enable --now ssh
+```
+
+### 使用 SSH 登录
+
+最基本的 SSH 登录命令是：
+
+```bash
+ssh 用户名@服务器地址
+```
+
+例如：
+
+```bash
+ssh sheep@192.168.1.23
+```
+
+如果服务器使用的不是默认 SSH 端口 `22`，需要用 `-p` 指定端口。比如 SSH 服务开在 `2222` 端口：
+
+```bash
+ssh -p 2222 sheep@192.168.1.23
+```
+SSH 还有很多选项可以用来调整连接行为，下面是一些常见选项：
+
+| 选项 | 作用 | 示例 |
+| --- | --- | --- |
+| `-p` | 指定 SSH 端口 | `ssh -p 2222 user@host` |
+| `-i` | 指定私钥文件 | `ssh -i ~/.ssh/id_ed25519 user@host` |
+| `-v` | 输出调试信息 | `ssh -v user@host` |
+| `-L` | 本地端口转发 | `ssh -L 8080:127.0.0.1:80 user@host` |
+| `-N` | 只建立连接，不执行远程命令 | `ssh -N -L 8080:127.0.0.1:80 user@host` |
+| `-f` | 连接成功后放到后台 | `ssh -fN -L 8080:127.0.0.1:80 user@host` |
+
+
+比如用指定私钥和指定端口登录：
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -p 2222 sheep@192.168.1.23
+```
+
+可以加 `-v` 看更详细的连接过程：
+
+```bash
+ssh -v sheep@192.168.1.23
+```
+
+如果信息还不够，也可以用 `-vv` 或 `-vvv`，输出会更详细。
+
+第一次连接一台新服务器时，SSH 会询问你是否信任这台远程主机：
 
 ```text
 The authenticity of host '192.168.1.23' can't be established.
 Are you sure you want to continue connecting (yes/no/[fingerprint])?
 ```
-
-这不是报错，而是在问你是否信任这台远程主机。
 
 如果确认地址没写错，可以输入：
 
@@ -650,9 +695,40 @@ Are you sure you want to continue connecting (yes/no/[fingerprint])?
 yes
 ```
 
-之后这台机器的主机指纹会被记录下来。下次再连接时，如果指纹突然变了，SSH 会警告你。这通常意味着远程机器重装过系统，或者连接目标发生了变化，需要仔细确认。
+之后这台机器的主机指纹会被记录到本地机器的：
 
-## 密码登录和密钥登录
+```bash
+~/.ssh/known_hosts
+```
+
+下次再连接时，如果指纹突然变了，SSH 会警告你。常见原因有：
+
+- 远程服务器重装了系统
+- 服务器的 SSH 主机密钥被重新生成
+- IP 地址被分配给了另一台机器
+- 你连错了地址
+- 中间人攻击
+
+
+如果确认是服务器重装或主机密钥正常变化，可以在**本地机器**上删除旧记录：
+
+```bash
+ssh-keygen -R 192.168.1.23
+```
+
+如果当时连接的是非默认端口，比如 `2222`，删除记录时也要带上端口：
+
+```bash
+ssh-keygen -R "[192.168.1.23]:2222"
+```
+
+然后重新连接：
+
+```bash
+ssh -p 2222 sheep@192.168.1.23
+```
+
+### 密码登录和密钥登录
 
 SSH 常见的登录方式有两种。
 
@@ -664,11 +740,9 @@ ssh user@server
 
 然后输入这个用户的密码。
 
-这种方式简单，适合课堂演示和内网练习。
-
 第二种是密钥登录。先在本机生成一对密钥：
 
-```bash
+```bash         
 ssh-keygen
 ```
 
@@ -678,281 +752,399 @@ ssh-keygen
 ssh-copy-id user@server
 ```
 
-之后登录时就可以不输入账户密码，或者配合密钥密码使用。对于公网服务器，密钥登录通常更适合长期使用。
-
-这一节课不要求大家马上把密钥登录配置熟练，但至少要知道：以后真正管理公网服务器时，SSH 密钥会比单纯密码更可靠。
+之后登录时就可以不输入账户密码，或者配合密钥密码使用。
 
 ## IP 和端口
 
-服务端能不能被别人连接，离不开两个概念：IP 和端口。
+如果说前面的用户和权限管理是在“建房子”，那么网络配置就是“修路”。服务端跑起来后，怎么让玩家顺利连进你的世界？我们需要搞懂以下几个核心概念。
 
-可以先粗略理解为：
+### IP、端口与 TCP
 
-> IP 找到机器，端口找到这台机器上的某个服务。
+先用一个不严谨但好理解的比喻：
+
+- **IP（地址）**：像小区地址，用来在网络里找到某一台机器
+- **端口（房门号）**：一台机器上可以同时运行很多服务，端口用来区分这些服务
+- **TCP（连接方式）**：一种可靠的网络连接方式，SSH、网页、Minecraft Java 版服务端通常都依靠 TCP 传输数据
 
 比如同一台服务器上可能同时运行：
 
-- SSH 服务
-- 网站服务
-- Minecraft 服务端
-- 数据库
+| 服务 | 常见端口 | 说明 |
+| --- | --- | --- |
+| SSH | `22/tcp` | 远程登录 |
+| HTTP | `80/tcp` | 普通网页 |
+| HTTPS | `443/tcp` | 加密网页 |
+| Minecraft Java | `25565/tcp` | MC Java 版默认端口 |
+| Minecraft Bedrock | `19132/udp` | MC 基岩版默认端口 |
 
-它们都在同一台机器上，所以 IP 可能相同。但它们使用不同端口。
 
-常见端口：
+> 举个例子，当玩家在客户端输入 `192.168.1.23:25565` 时，大致意思是：
+>
+> 去 `192.168.1.23` 这台机器上，敲开 `25565` 这扇门，建立一条 TCP 连接。
 
-| 端口 | 常见用途 |
+一个端口同一时间通常只能被一个程序监听。如果你已经有一个 MC 服务端占用了 `25565`，另一个服务端再想用同一个端口就会失败。要么关掉前一个服务，要么给第二个服务换端口。
+
+端口的数字范围是 `0` 到 `65535`。其中：
+
+| 范围 | 常见含义 |
 | --- | --- |
-| `22` | SSH |
-| `80` | HTTP |
-| `443` | HTTPS |
-| `25565` | Minecraft Java 版默认端口 |
+| `0-1023` | 系统常用端口，例如 `22`、`80`、`443`，普通用户通常不能随便监听 |
+| `1024-49151` | 注册端口，很多应用会使用 |
+| `49152-65535` | 临时端口，系统和程序常用于临时连接 |
 
-所以连接 MC 服务器时，我们经常会看到：
+所以 MC 选择 `25565` 这种大于 `1024` 的端口，普通用户也可以直接运行服务端监听它。
 
-```text
-192.168.1.23:25565
-```
+### 谁能连接我的服务器（本机、局域网与公网）
 
-前面的 `192.168.1.23` 是 IP，后面的 `25565` 是端口。
+在开服时，很多“我能连但别人不能连”的千古难题，都来自这里。我们要分清你的 IP 到底是在哪个范围内生效的：
 
-## localhost、局域网和公网
-
-在开服时，很多“我能连但别人不能连”的问题，都来自这里。
-
-### localhost
+#### localhost：我连我自己
 
 `localhost` 和 `127.0.0.1` 都表示“自己这台机器”。
 
-如果你在自己电脑上运行了 MC 服务端，然后在同一台电脑上的 MC 客户端里填：
+如果你在运行服务端的同一台电脑上打开 MC 客户端，可以填：
 
 ```text
 localhost:25565
+127.0.0.1:25565
 ```
 
-这是自己连接自己。
+自己连得上，只代表服务端在本机能访问，**不代表**别人能进。
 
-自己能连上 `localhost`，只说明服务端在本机能用，不说明别人能连进来。
+#### 局域网 IP：同一个网络里的人连接
 
-### 局域网 IP
+局域网 IP 通常长这样：
 
-同一个 Wi-Fi、同一个路由器、同一个实验室网络里的设备，通常可以通过局域网 IP 互相访问。
+| 类别 | 地址范围 | 子网掩码 | 可用地址数 |
+| --- | --- | --- | --- |
+| A类 | 10.0.0.0 - 10.255.255.255 | 255.0.0.0 | 16,777,216 |
+| B类 | 172.16.0.0 - 172.31.255.255 | 255.240.0.0 | 1,048,576 |
+| C类 | 192.168.0.0 - 192.168.255.255 | 255.255.0.0 | 65,536 |
 
-常见局域网 IP 长这样：
+这些地址一般只在你的内网里有效。比如同一个 Wi-Fi、同一个路由器、同一个实验室交换机下的设备，可能可以互相访问。
 
-```text
-192.168.x.x
-10.x.x.x
-172.16.x.x ~ 172.31.x.x
-```
-
-在 Linux 里可以查看 IP：
+在 Linux 里查看本机地址：
 
 ```bash
-ip addr
+╭─[fridayssheep@allinone:~/文/test]—{>_<:1}—(18:01:17)—(21ms)
+╰─$> ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute
+       valid_lft forever preferred_lft forever
+2: enp2s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 22:01:12:a1:0c:3f brd ff:ff:ff:ff:ff:ff
+    altname enx220112a10c3f
+    inet 192.168.50.3/24 brd 192.168.50.255 scope global dynamic noprefixroute enp2s0
+       valid_lft 56775sec preferred_lft 56775sec
+    inet6 fda2:3977:ef5f:ae00:a7e8:57fd:7daf:915/64 scope global dynamic noprefixroute
+       valid_lft 7084sec preferred_lft 3484sec
+    inet6 240a:42a8:c00:f19:3455:a018:d357:5abd/64 scope global dynamic noprefixroute
+       valid_lft 7084sec preferred_lft 3484sec
+    inet6 240a:42a8:c00:f19::de6/128 scope global dynamic noprefixroute
+       valid_lft 7085sec preferred_lft 3485sec
+    inet6 fda2:3977:ef5f:ae00::de6/128 scope global dynamic noprefixroute
+       valid_lft 7085sec preferred_lft 3485sec
+    inet6 fe80::7484:83f3:63df:fd85/64 scope link noprefixroute
+       valid_lft forever preferred_lft forever
+3: wlp1s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 10:6f:d9:31:af:25 brd ff:ff:ff:ff:ff:ff
+    altname wlx106fd931af25
+    inet 192.168.50.150/24 brd 192.168.50.255 scope global dynamic noprefixroute wlp1s0
+       valid_lft 56854sec preferred_lft 56854sec
+    inet6 fda2:3977:ef5f:ae00:cc91:538b:9ca:cc75/64 scope global dynamic noprefixroute
+       valid_lft 7084sec preferred_lft 3484sec
+    inet6 240a:42a8:c00:f19:3bc7:62ac:af67:9ada/64 scope global dynamic noprefixroute
+       valid_lft 7084sec preferred_lft 3484sec
+    inet6 240a:42a8:c00:f19::714/128 scope global dynamic noprefixroute
+       valid_lft 6429sec preferred_lft 2829sec
+    inet6 fda2:3977:ef5f:ae00::714/128 scope global dynamic noprefixroute
+       valid_lft 6429sec preferred_lft 2829sec
+    inet6 fe80::40dc:e103:7e19:3acc/64 scope link noprefixroute
+       valid_lft forever preferred_lft forever
+4: br-05d1584724ba: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    link/ether 06:ba:51:72:63:99 brd ff:ff:ff:ff:ff:ff
+    inet 172.26.0.1/16 brd 172.26.255.255 scope global br-05d1584724ba
+       valid_lft forever preferred_lft forever
+    inet6 fe80::4ba:51ff:fe72:6399/64 scope link proto kernel_ll
+       valid_lft forever preferred_lft forever
+5: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
+    link/ether 2a:9d:46:52:e8:91 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
+       valid_lft forever preferred_lft forever
+6: br-43e2776264dc: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    link/ether be:a4:32:72:1d:ba brd ff:ff:ff:ff:ff:ff
+    inet 172.18.0.1/16 brd 172.18.255.255 scope global br-43e2776264dc
+       valid_lft forever preferred_lft forever
+    inet6 fe80::bca4:32ff:fe72:1dba/64 scope link proto kernel_ll
+       valid_lft forever preferred_lft forever
+15: vethaa7ad4a@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-debb90331c08 state UP group default
+    link/ether 92:14:24:81:e0:85 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet6 fe80::9014:24ff:fe81:e085/64 scope link proto kernel_ll
+       valid_lft forever preferred_lft forever
 ```
 
-也可以用更简短的：
+这个输出里最需要看的其实就几项：
+
+- `lo`：回环网卡，也就是自己连自己用的地址，通常是 `127.0.0.1`
+- `enp2s0`、`wlp1s0`：真正连接网络的网卡，前者通常是有线网卡，后者通常是无线网卡
+- `inet 192.168.50.3/24`：这块网卡的 IPv4 地址，前面的 `192.168.50.3` 就是本机局域网 IP
+- `inet6 ...`：这是你的 IPv6 地址
+
+对开服来说，最常用的就是找到这台机器在局域网里的 `inet` 地址，然后让同一网络里的别人用这个地址加端口连接。
+
+如果只想快速看地址，也可以：
 
 ```bash
-hostname -I
+╭─[fridayssheep@allinone:~/文/test]—{^o^}—(18:10:30)—(71ms)
+╰─$> hostname -I
+192.168.50.3 192.168.50.150 172.26.0.1 172.17.0.1 172.18.0.1 172.24.0.1 172.25.0.1 172.23.0.1 172.19.0.1 172.21.0.1 172.20.0.1 172.22.0.1 172.27.0.1 fda2:3977:ef5f:ae00:a7e8:57fd:7daf:915 240a:42a8:c00:f19:3455:a018:d357:5abd 240a:42a8:c00:f19::de6 fda2:3977:ef5f:ae00::de6 fda2:3977:ef5f:ae00:cc91:538b:9ca:cc75 240a:42a8:c00:f19:3bc7:62ac:af67:9ada 240a:42a8:c00:f19::714 fda2:3977:ef5f:ae00::714
 ```
+所列出的地址为可以通达本机的地址，通常第一个就是局域网 IP。
 
-假设你的局域网 IP 是：
+注意，“同一个校园网”不一定等于“同一个局域网”。有些校园网会隔离不同宿舍、不同 AP、不同 VLAN。即使大家都连着学校 Wi-Fi，也不一定能互相访问。
+
+#### 公网 IP：互联网上的人连接
+
+公网 IP 是互联网能直接访问到的地址。
+
+如果你的服务器是云服务器，例如阿里云、腾讯云、华为云，通常会分配一个公网 IP。外网玩家连接时填的就是：
 
 ```text
-192.168.1.23
+公网IP:25565
 ```
 
-同一局域网里的其他人可以尝试连接：
+如果你的机器在宿舍、家里或实验室，通常在路由器和运营商 NAT 后面，不一定有真正能被外网访问的公网 IP。外网玩家直接连你的局域网 IP 肯定是不行的，连你路由器看到的“公网地址”也不一定行。
+
+常见的内网地址包括：
 
 ```text
-192.168.1.23:25565
+10.0.0.0/8
+172.16.0.0/12
+192.168.0.0/16
 ```
 
-### 公网 IP
-
-公网 IP 是互联网上可以访问到的地址。
-
-如果你希望不在同一个局域网的人也能连接你的服务器，通常需要满足至少一个条件：
-
-- 服务器本身有公网 IP
-- 路由器做了端口转发
-- 使用了内网穿透
-
-如果你的电脑只是在宿舍或家里的局域网里，没有公网 IP，也没有端口转发，外网玩家通常不能直接连进来。
-
-这就是为什么第四课会讲 frp 一类的内网穿透工具。
-
-## TCP/IP 够用版
-
-网络协议可以讲得很深，但这一节我们先只讲开服够用的部分。
-
-IP 是地址。
-
-TCP 是一种可靠连接，SSH、网页、Minecraft Java 版服务端通常都和 TCP 有关。
-
-UDP 是另一类通信方式，一些游戏、语音、实时应用会用到它。今天不展开。
-
-端口是服务入口。
-
-所以当我们说：
+还有一种很常见的运营商级 NAT 地址：
 
 ```text
-192.168.1.23:25565
+100.64.0.0/10
 ```
 
-大致意思是：
+如果你在路由器 WAN 口看到的是 `10.x.x.x`、`172.16-31.x.x`、`192.168.x.x` 或 `100.64.x.x`，那通常说明你并没有真正直接暴露在公网里。这时外网朋友想连进来，就需要端口转发、公网服务器中转，或者内网穿透。
 
-> 去 `192.168.1.23` 这台机器上，连接 `25565` 这个服务入口。
+### 服务端真的在等玩家吗？（端口监听）
 
-## 怎么知道服务有没有在监听端口
-
-有时候“连不上”不是网络问题，而是服务端根本没启动，或者没有监听我们以为的端口。
-
-在 Linux 中可以用：
+有时候连不上，并不是网络卡了，而是服务端根本没在门口“迎客”。在 Linux 中，可以用这个命令查看正在监听的端口：
 
 ```bash
 ss -tulnp
 ```
 
-查看正在监听的端口。
+(**t**cp, **u**dp, **l**istening, **n**umeric, **p**rocess)
 
-其中：
+几个参数的含义是：
 
 - `t`：TCP
 - `u`：UDP
-- `l`：listening，只看监听中的端口
-- `n`：不把端口号转换成服务名
-- `p`：显示对应进程
+- `l`：listening，只看正在监听的端口
+- `n`：numeric，不把端口号转换成服务名
+- `p`：process，显示对应进程
 
-如果 Minecraft 服务端正在监听默认端口，可能能看到类似：
+通常一个系统中会存在不少连接，我们可以使用 `grep` 过滤一下：
 
-```text
-LISTEN 0 4096 0.0.0.0:25565 0.0.0.0:* users:(("java",pid=1234,fd=123))
+```bash
+╭─[fridayssheep@allinone:~/文/test]—{>_<:1}—(17:59:22)—(38ms)
+╰─$> ss -tulnp | grep 8096
+tcp   LISTEN 0      4096                                    0.0.0.0:8096       0.0.0.0:*
+tcp   LISTEN 0      4096                                       [::]:8096          [::]:*
+╭─[fridayssheep@allinone:~/文/test]—{^o^}—(17:59:26)—(36ms)
+╰─$>
 ```
 
-这里要注意监听地址。
+对于 MC Java 版服务端，可以这样看：
 
-如果是：
-
-```text
-127.0.0.1:25565
+```bash
+ss -tulnp | grep 25565
 ```
 
-通常表示只允许本机访问。
-
-如果是：
+如果能看到类似：
 
 ```text
-0.0.0.0:25565
+tcp LISTEN 0 4096 0.0.0.0:25565 0.0.0.0:* users:(("java",pid=1234,fd=123))
 ```
 
-通常表示监听所有 IPv4 地址，局域网其他设备才有机会连进来。
+说明有一个 Java 程序正在监听 `25565/tcp`。
 
-对于 Minecraft 服务端，一般不要在 `server.properties` 里把 `server-ip` 手动填成 `127.0.0.1`。多数情况下保持：
+重点看监听地址：
+
+- `127.0.0.1:25565`：只允许本机访问，别人一般连不进来
+- `0.0.0.0:25565`：监听所有 IPv4 网卡，局域网或公网设备才有机会连进来
+- `[::]:25565`：监听 IPv6 地址，通常表示 IPv6 也在监听
+
+对于 Minecraft 服务端，一般不要在 `server.properties` 里把 `server-ip` 手动填成 `127.0.0.1`。多数情况下保持留空即可：
 
 ```properties
 server-ip=
 ```
 
-留空就可以。
+这样服务端通常会监听合适的地址。如果你不确定自己在做什么，不要乱填 `server-ip`。
 
-## 防火墙是什么
+如果想从另一台机器测试端口是否能连，可以用：
 
-服务启动了，端口也监听了，但别人仍然可能连不上。
+```bash
+nc -vz 192.168.1.23 25565
+```
 
-因为中间还有防火墙。
+如果没有 `nc`，Debian / Ubuntu 可以安装：
 
-防火墙可以理解为一张规则表：哪些连接允许进来，哪些连接拒绝进来。
+```bash
+sudo apt install netcat-openbsd
+```
 
-在服务器上，防火墙不是坏东西。它可以防止不必要的端口暴露在网络上。但如果我们要让别人连接 MC 服务端，就必须允许对应端口进入。
+注意，`ping` 只能说明 ICMP 是否能到达，并不能证明某个 TCP 端口是通的。开服排查时，测试端口比单纯 `ping` 更有意义。
 
-Ubuntu 和 Debian 上常见的简化防火墙管理工具是 `ufw`。
+### 防火墙配置 (ufw)
 
-查看状态：
+Minecraft 服务端虽然在监听，但如果防火墙没放行对应端口，玩家还是进不来。Linux 系统里的防火墙就像小区门卫，负责检查每个进出的数据包，看它们有没有通行证。如果没有，就不让它们进来。
+
+通常来说，Ubuntu 和 Debian 不会存在默认的防火墙规则，但是对于暴露在公网的服务器来说，配置防火墙是非常重要的安全措施。它可以帮助你限制哪些端口对外开放，减少被攻击的风险。
+
+Ubuntu 和 Debian 上最简单好用的防火墙工具是 `ufw`。
+
+手动安装它：
+
+```bash
+sudo apt update
+sudo apt install ufw
+```
+
+我们需要手动把 SSH 和 MC 的端口放行：
+
+```bash
+# 极其重要：务必先放行 SSH！否则一会开启防火墙后，你自己也会被踢出服务器！
+sudo ufw allow ssh 
+# 或 sudo ufw allow 22/tcp
+
+# 放行 Minecraft Java 版端口
+sudo ufw allow 25565/tcp
+
+# 启用防火墙
+sudo ufw enable
+
+# 查看当前生效的规则
+sudo ufw status numbered
+```
+
+如果需要删除某条规则，可以先用 `ufw status numbered` 查看规则编号，然后执行：
+
+```bash
+sudo ufw delete 规则编号
+```
+
+如果 SSH 不是默认端口，比如前面改成了 `2222`，就不要只写 `allow ssh`，而应该放行实际端口：
+
+```bash
+sudo ufw allow 2222/tcp
+```
+
+如果只希望某个固定 IP 能 SSH 进来，可以写得更严格：
+
+```bash
+sudo ufw allow from 192.168.1.100 to any port 22 proto tcp
+```
+
+这条规则的意思是：只允许 `192.168.1.100` 访问本机的 `22/tcp`。
+
+对于课堂和初学阶段，先记住这几条就够了：
 
 ```bash
 sudo ufw status
-```
-
-允许 SSH：
-
-```bash
 sudo ufw allow ssh
+sudo ufw allow 25565/tcp
+sudo ufw enable
 ```
 
-或者明确允许 22 端口：
+### 云服务器安全组
 
-```bash
-sudo ufw allow 22/tcp
-```
+如果你使用的是云服务器，除了 Linux 里面的 `ufw`，还要看云平台自己的安全组。
 
-允许 Minecraft Java 版默认端口：
+安全组可以理解为云服务器外面又套了一层防火墙。即使你的系统里已经执行：
 
 ```bash
 sudo ufw allow 25565/tcp
 ```
 
-启用防火墙：
+如果云平台安全组没有放行 `25565/tcp`，外网玩家依然连不进来。
 
-```bash
-sudo ufw enable
-```
+所以云服务器开服时，需要同时检查：
 
-查看带编号的规则：
+- MC 服务端是否启动
+- `ss -tulnp` 是否能看到 `25565`
+- Linux 防火墙是否放行 `25565/tcp`
+- 云平台安全组是否放行 `25565/tcp`
+- 玩家填的是公网 IP，而不是内网 IP
 
-```bash
-sudo ufw status numbered
-```
+安全组里通常会有这些字段：
 
-如果是在远程服务器上配置防火墙，一定要先放行 SSH，再启用防火墙：
+| 字段 | 应该怎么填 |
+| --- | --- |
+| 协议 | TCP |
+| 端口 | `25565` |
+| 来源 | 测试时可用 `0.0.0.0/0`，长期运行建议按需要收紧 |
 
-```bash
-sudo ufw allow ssh
-sudo ufw enable
-```
+`0.0.0.0/0` 表示允许任意 IPv4 地址访问。MC 端口通常可以这样开放给玩家，但 SSH 端口不建议长期对全网开放，至少应该使用强密码、密钥登录，或者限制来源 IP。
 
-否则可能出现一种很尴尬的情况：防火墙启用了，但 SSH 没放行，于是你把自己锁在服务器外面了。
+### WSL 下的网络注意事项
 
-## 云服务器安全组
+如果你是在 WSL 里跑服务端，还要额外注意：WSL 里的 Linux 和 Windows 虽然在同一台电脑上，但网络行为不完全等同于一台真正独立的 Linux 服务器。
 
-如果你使用的是云服务器，除了系统里的 `ufw`，还可能有云厂商提供的“安全组”。
+最常见的情况是：
 
-安全组可以理解为云服务器外面又套了一层防火墙。即使 Linux 里面已经允许了 `25565/tcp`，如果云平台安全组没有放行，外面还是连不进来。
+- Windows 本机访问 WSL 里的服务，通常可以用 `localhost`
+- 局域网其他设备访问 WSL 里的服务，可能会被 WSL 网络模式和 Windows 防火墙影响
+- WSL 里的服务如果只监听 `127.0.0.1`，外部设备一般无法访问
 
-所以公网服务器排查连接问题时，可以按这个顺序看：
-
-- 服务端程序是否启动
-- 服务端是否监听了正确端口
-- Linux 防火墙是否放行
-- 云服务器安全组是否放行
-- 客户端填的 IP 和端口是否正确
-
-## WSL 下要额外注意
-
-如果你是在 WSL 里跑服务端，还要记住一点：WSL 里的 Linux 和 Windows 虽然在同一台电脑上，但网络行为不总是等同于真正的独立服务器。
-
-自己电脑上的 Windows 客户端访问 WSL 里的服务，通常可以用：
+如果只是自己在 Windows 上开 MC 客户端测试 WSL 里的服务端，可以尝试：
 
 ```text
 localhost:25565
 ```
 
-但同一局域网里的其他设备访问你电脑里的 WSL 服务时，还可能受到这些因素影响：
+如果想让同一局域网里的其他设备访问，需要看这几件事：
 
-- WSL 网络模式
-- Windows 防火墙
-- Java 是否被 Windows 防火墙放行
-- WSL 服务是否只监听 `127.0.0.1`
+- 服务端监听的是不是 `0.0.0.0:25565` 或 `[::]:25565`
+- Windows 防火墙是否放行 Java 或 `25565/tcp`
+- WSL 网络模式是否允许局域网访问
+- 其他设备填的是 Windows 这台机器的局域网 IP，而不是 WSL 内部 IP
 
-如果只是课堂练习，不需要一次性把 WSL 局域网访问全部讲透。只要知道：本机能连，不等于局域网能连；局域网能连，不等于公网能连。
+Windows 的局域网 IP 可以在 PowerShell 里看：
 
-## 内网穿透先知道概念
+```powershell
+ipconfig
+```
 
-如果没有公网 IP，又想让外网玩家连到本地服务端，就需要额外的方法。
+找到正在使用的网卡，例如 WLAN 或以太网，查看 `IPv4 地址`。
 
-内网穿透就是一种常见方案。它大致做了这样一件事：
+如果 Windows 的局域网 IP 是：
+
+```text
+192.168.1.23
+```
+
+同一局域网的人可以尝试：
+
+```text
+192.168.1.23:25565
+```
+
+如果仍然连不上，优先检查 Windows 防火墙。WSL 的网络细节比较容易受 Windows 版本、WSL 版本和网络模式影响，这部分不建议在第二课深挖，知道“WSL 会多一层 Windows 网络和防火墙因素”就够了。
+
+### 内网穿透先知道概念
+
+如果没有公网 IP，又想让外网玩家连到本地服务端，就需要额外方法。
+
+内网穿透大致做了这样一件事：
 
 > 找一台有公网地址的服务器当中转站，把外面的连接转发到你本地机器。
 
@@ -963,91 +1155,35 @@ localhost:25565
 - `localhost` 只适合自己连接自己
 - 局域网 IP 适合同一网络下的人连接
 - 公网访问通常需要公网 IP、端口转发或内网穿透
+- 没有公网 IP 时，外网直连通常不可行
 
-## 一个完整的小练习
+### 连不上时按什么顺序排查
 
-我们用一个不真正开服的小练习，把今天的内容串起来。
+网络问题很容易乱，所以建议以后按顺序排查，不要一上来就改一堆配置。
 
-创建练习目录：
+#### 1. 服务端是否真的启动
 
-```bash
-mkdir -p ~/mc-demo
-cd ~/mc-demo
-```
+看服务端终端输出，确认没有崩溃。
 
-写一个启动脚本：
+再看端口：
 
 ```bash
-echo 'echo server starting' > start.sh
+ss -tulnp | grep 25565
 ```
 
-查看权限：
+如果没有任何输出，说明服务端可能没启动，或者端口不是 `25565`。
 
-```bash
-ls -l
-```
+#### 2. 服务端监听在哪里
 
-尝试运行：
+看监听地址：
 
-```bash
-./start.sh
-```
+- `127.0.0.1:25565`：本机访问
+- `0.0.0.0:25565`：所有 IPv4 网卡
+- `[::]:25565`：IPv6
 
-如果提示权限不足，就加执行权限：
+如果只监听 `127.0.0.1`，别人一般连不进来。
 
-```bash
-chmod +x start.sh
-```
-
-再次运行：
-
-```bash
-./start.sh
-```
-
-查看本机 IP：
-
-```bash
-hostname -I
-```
-
-查看监听端口：
-
-```bash
-ss -tulnp
-```
-
-如果是在测试服务器上，可以查看防火墙：
-
-```bash
-sudo ufw status
-```
-
-如果以后要放行 MC 端口：
-
-```bash
-sudo ufw allow 25565/tcp
-```
-
-这个练习里我们还没有真的启动 Minecraft 服务端，但已经提前处理了后面最常见的几类问题：脚本权限、用户权限、IP、端口和防火墙。
-
-## 常见问题排查
-
-如果之后开服遇到“连不上”，可以按这个顺序排查。
-
-### 服务端是否真的启动
-
-看终端输出，确认服务端没有崩溃。
-
-之后也可以用：
-
-```bash
-ss -tulnp
-```
-
-确认有没有监听 `25565`。
-
-### 客户端填的是哪个地址
+#### 3. 客户端填的地址是否正确
 
 自己连自己：
 
@@ -1069,50 +1205,21 @@ localhost:25565
 
 不要把这三种场景混在一起。
 
-### 防火墙有没有放行
+#### 4. 防火墙是否放行
 
 Linux 上看：
 
 ```bash
-sudo ufw status
+sudo ufw status numbered
 ```
 
-如果是云服务器，还要看云平台安全组。
+云服务器还要看安全组。
 
-如果是 WSL，还要看 Windows 防火墙。
+WSL 还要看 Windows 防火墙。
 
-### 服务是不是只监听本机
+#### 5. 你是否真的有公网入口
 
-查看：
+如果服务器在家里、宿舍或实验室，不一定有公网 IP。没有公网 IP 时，外网玩家直连通常不行，需要端口转发或内网穿透。
 
-```bash
-ss -tulnp
-```
+到这里，我们不要求大家一次性解决所有网络问题，但至少要能判断问题大概卡在哪一层：服务没起来、端口没监听、防火墙没放行、地址填错，还是根本没有公网入口。
 
-如果只看到：
-
-```text
-127.0.0.1:25565
-```
-
-说明它可能只允许本机访问。对于 MC 服务端，优先检查 `server.properties` 里的：
-
-```properties
-server-ip=
-```
-
-一般保持留空。
-
-## 本节课总结
-
-这一节课我们补上了正式开服前很重要的一层基础。
-
-用户和 `sudo` 解决的是“谁在操作系统”。
-
-`rwx` 和 `chmod` 解决的是“谁能读、写、执行文件”。
-
-SSH 解决的是“怎么远程管理服务器”。
-
-IP、端口和防火墙解决的是“服务怎样被别人连接”。
-
-到这里，我们还没有正式把 Minecraft 服务端跑起来，但已经准备好了真正开服前最容易卡住的部分。下一节课开始，就可以进入 Minecraft 服务端本体：下载服务端、编写启动脚本、同意 EULA、第一次启动、修改配置文件，以及让玩家真正进服。

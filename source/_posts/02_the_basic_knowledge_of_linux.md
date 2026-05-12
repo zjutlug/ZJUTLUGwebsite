@@ -2,7 +2,7 @@
 title: 第二课 Linux的基础知识
 date: 2026-05-12 11:09:50
 tags: [活动,课程宣讲]
-cover: /img/defaultcover.webp
+cover: /img/post/02_the_basic_knowledge_of_linux/linux-minecraft-server-cover.webp
 ---
 # 从入门到入土的Linux架设MC服的第二课：Linux的基础知识
 
@@ -879,7 +879,7 @@ localhost:25565
        valid_lft forever preferred_lft forever
     inet6 fe80::bca4:32ff:fe72:1dba/64 scope link proto kernel_ll
        valid_lft forever preferred_lft forever
-15: vethaa7ad4a@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-debb90331c08 state UP group default
+7: vethaa7ad4a@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-debb90331c08 state UP group default
     link/ether 92:14:24:81:e0:85 brd ff:ff:ff:ff:ff:ff link-netnsid 0
     inet6 fe80::9014:24ff:fe81:e085/64 scope link proto kernel_ll
        valid_lft forever preferred_lft forever
@@ -930,6 +930,7 @@ localhost:25565
 ```text
 100.64.0.0/10
 ```
+![非公网ip的路由器](/img/post/02_the_basic_knowledge_of_linux/router-wan-status.webp)
 
 如果你在路由器 WAN 口看到的是 `10.x.x.x`、`172.16-31.x.x`、`192.168.x.x` 或 `100.64.x.x`，那通常说明你并没有真正直接暴露在公网里。这时外网朋友想连进来，就需要端口转发、公网服务器中转，或者内网穿透。
 
@@ -976,19 +977,9 @@ tcp LISTEN 0 4096 0.0.0.0:25565 0.0.0.0:* users:(("java",pid=1234,fd=123))
 
 说明有一个 Java 程序正在监听 `25565/tcp`。
 
-重点看监听地址：
-
 - `127.0.0.1:25565`：只允许本机访问，别人一般连不进来
 - `0.0.0.0:25565`：监听所有 IPv4 网卡，局域网或公网设备才有机会连进来
 - `[::]:25565`：监听 IPv6 地址，通常表示 IPv6 也在监听
-
-对于 Minecraft 服务端，一般不要在 `server.properties` 里把 `server-ip` 手动填成 `127.0.0.1`。多数情况下保持留空即可：
-
-```properties
-server-ip=
-```
-
-这样服务端通常会监听合适的地址。如果你不确定自己在做什么，不要乱填 `server-ip`。
 
 如果想从另一台机器测试端口是否能连，可以用：
 
@@ -1002,7 +993,7 @@ nc -vz 192.168.1.23 25565
 sudo apt install netcat-openbsd
 ```
 
-注意，`ping` 只能说明 ICMP 是否能到达，并不能证明某个 TCP 端口是通的。开服排查时，测试端口比单纯 `ping` 更有意义。
+注意，`ping` 只能说明 ICMP 是否能到达，并不能证明某个 TCP 端口是通的。测试端口比单纯 `ping` 更有意义。
 
 ### 防火墙配置 (ufw)
 
@@ -1055,171 +1046,3 @@ sudo ufw allow from 192.168.1.100 to any port 22 proto tcp
 ```
 
 这条规则的意思是：只允许 `192.168.1.100` 访问本机的 `22/tcp`。
-
-对于课堂和初学阶段，先记住这几条就够了：
-
-```bash
-sudo ufw status
-sudo ufw allow ssh
-sudo ufw allow 25565/tcp
-sudo ufw enable
-```
-
-### 云服务器安全组
-
-如果你使用的是云服务器，除了 Linux 里面的 `ufw`，还要看云平台自己的安全组。
-
-安全组可以理解为云服务器外面又套了一层防火墙。即使你的系统里已经执行：
-
-```bash
-sudo ufw allow 25565/tcp
-```
-
-如果云平台安全组没有放行 `25565/tcp`，外网玩家依然连不进来。
-
-所以云服务器开服时，需要同时检查：
-
-- MC 服务端是否启动
-- `ss -tulnp` 是否能看到 `25565`
-- Linux 防火墙是否放行 `25565/tcp`
-- 云平台安全组是否放行 `25565/tcp`
-- 玩家填的是公网 IP，而不是内网 IP
-
-安全组里通常会有这些字段：
-
-| 字段 | 应该怎么填 |
-| --- | --- |
-| 协议 | TCP |
-| 端口 | `25565` |
-| 来源 | 测试时可用 `0.0.0.0/0`，长期运行建议按需要收紧 |
-
-`0.0.0.0/0` 表示允许任意 IPv4 地址访问。MC 端口通常可以这样开放给玩家，但 SSH 端口不建议长期对全网开放，至少应该使用强密码、密钥登录，或者限制来源 IP。
-
-### WSL 下的网络注意事项
-
-如果你是在 WSL 里跑服务端，还要额外注意：WSL 里的 Linux 和 Windows 虽然在同一台电脑上，但网络行为不完全等同于一台真正独立的 Linux 服务器。
-
-最常见的情况是：
-
-- Windows 本机访问 WSL 里的服务，通常可以用 `localhost`
-- 局域网其他设备访问 WSL 里的服务，可能会被 WSL 网络模式和 Windows 防火墙影响
-- WSL 里的服务如果只监听 `127.0.0.1`，外部设备一般无法访问
-
-如果只是自己在 Windows 上开 MC 客户端测试 WSL 里的服务端，可以尝试：
-
-```text
-localhost:25565
-```
-
-如果想让同一局域网里的其他设备访问，需要看这几件事：
-
-- 服务端监听的是不是 `0.0.0.0:25565` 或 `[::]:25565`
-- Windows 防火墙是否放行 Java 或 `25565/tcp`
-- WSL 网络模式是否允许局域网访问
-- 其他设备填的是 Windows 这台机器的局域网 IP，而不是 WSL 内部 IP
-
-Windows 的局域网 IP 可以在 PowerShell 里看：
-
-```powershell
-ipconfig
-```
-
-找到正在使用的网卡，例如 WLAN 或以太网，查看 `IPv4 地址`。
-
-如果 Windows 的局域网 IP 是：
-
-```text
-192.168.1.23
-```
-
-同一局域网的人可以尝试：
-
-```text
-192.168.1.23:25565
-```
-
-如果仍然连不上，优先检查 Windows 防火墙。WSL 的网络细节比较容易受 Windows 版本、WSL 版本和网络模式影响，这部分不建议在第二课深挖，知道“WSL 会多一层 Windows 网络和防火墙因素”就够了。
-
-### 内网穿透先知道概念
-
-如果没有公网 IP，又想让外网玩家连到本地服务端，就需要额外方法。
-
-内网穿透大致做了这样一件事：
-
-> 找一台有公网地址的服务器当中转站，把外面的连接转发到你本地机器。
-
-第四课如果讲 frp，就会正式用到这个思路。
-
-这一节课只需要先记住：
-
-- `localhost` 只适合自己连接自己
-- 局域网 IP 适合同一网络下的人连接
-- 公网访问通常需要公网 IP、端口转发或内网穿透
-- 没有公网 IP 时，外网直连通常不可行
-
-### 连不上时按什么顺序排查
-
-网络问题很容易乱，所以建议以后按顺序排查，不要一上来就改一堆配置。
-
-#### 1. 服务端是否真的启动
-
-看服务端终端输出，确认没有崩溃。
-
-再看端口：
-
-```bash
-ss -tulnp | grep 25565
-```
-
-如果没有任何输出，说明服务端可能没启动，或者端口不是 `25565`。
-
-#### 2. 服务端监听在哪里
-
-看监听地址：
-
-- `127.0.0.1:25565`：本机访问
-- `0.0.0.0:25565`：所有 IPv4 网卡
-- `[::]:25565`：IPv6
-
-如果只监听 `127.0.0.1`，别人一般连不进来。
-
-#### 3. 客户端填的地址是否正确
-
-自己连自己：
-
-```text
-localhost:25565
-```
-
-同一局域网的人连接：
-
-```text
-你的局域网IP:25565
-```
-
-外网玩家连接：
-
-```text
-公网IP或域名:25565
-```
-
-不要把这三种场景混在一起。
-
-#### 4. 防火墙是否放行
-
-Linux 上看：
-
-```bash
-sudo ufw status numbered
-```
-
-云服务器还要看安全组。
-
-WSL 还要看 Windows 防火墙。
-
-#### 5. 你是否真的有公网入口
-
-如果服务器在家里、宿舍或实验室，不一定有公网 IP。没有公网 IP 时，外网玩家直连通常不行，需要端口转发或内网穿透。
-
-到这里，我们不要求大家一次性解决所有网络问题，但至少要能判断问题大概卡在哪一层：服务没起来、端口没监听、防火墙没放行、地址填错，还是根本没有公网入口。
-

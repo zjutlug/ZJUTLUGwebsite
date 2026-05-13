@@ -25,6 +25,7 @@ cover: /img/defaultcover.webp
 
 我们会使用 [frp](https://gofrp.org/zh-cn/docs/) 完成内网穿透，让玩家通过一台有公网 IP 的服务器访问你内网里的 MC 服务端。
 
+事实上，市面上有很多内网穿透工具，frp 只是其中之一。例如Tailscale、ZeroTier、UU远程、花生壳、向日葵等也都能实现类似的功能。我们选择 frp 是因为我们需要将服务暴露给公网玩家，而不是需要被服务器吸引的新人还需要下载一个内网穿透客户端才能链接。相较于其他工具，frp 的部署和使用相对简单，且性能较好
 
 ## 今天我们要做什么
 
@@ -676,7 +677,7 @@ remotePort = 25566
 mc.example.com:25566
 ```
 
-## 安全注意事项
+## 对你的服务器安全负责
 
 frp 能把内网服务暴露到公网，这很方便，也意味着你需要对安全负责。
 
@@ -714,4 +715,11 @@ auth.token = "********"
 
 如果 SSH 改了端口，以实际端口为准。
 
-不要为了省事直接开放所有端口。
+不要为了省事直接开放所有端口。尤其是对于SSH，若服务器在本地局域网建议直接不对公网开放端口。如果服务器属于云厂商的公网服务器，建议将其改成一个不常见的端口，并且只允许特定 IP 连接。
+
+### 为什么？
+互联网是个危险的地方，对于公网IPV4地址，会存在来自全世界任何一个位置属于攻击者的服务器24小时扫描服务器的开放端口，寻找漏洞进行攻击。这并非危言耸听：
+
+![尝试爆破SSHroot用户的攻击者](/img/post/04_get_your_server_be_known_to_world/sshfailed1.webp)
+![尝试爆破SSH的日志（当5分钟内来自同一IP登陆失败大于20次才被记录）](/img/post/04_get_your_server_be_known_to_world/sshfailed2.webp)
+![无时不刻来自同一ip的爆破尝试](/img/post/04_get_your_server_be_known_to_world/sshfailed3.webp)

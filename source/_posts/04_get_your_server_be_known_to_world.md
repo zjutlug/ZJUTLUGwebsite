@@ -1,8 +1,8 @@
 ---
 title: 第四课 让世界看见你的服务器：frp 内网穿透
-date: 2026-05-31 11:11:26
+date: 2026-05-13 11:11:26
 tags: [活动,课程宣讲]
-cover: /img/defaultcover.webp
+cover: /img/post/04_get_your_server_be_known_to_world/04_get_your_server_be_known_to_world.webp
 ---
 # 从入门到入土的Linux架设MC服的第四课：让世界看见你的服务器
 

@@ -655,7 +655,7 @@ highlight:
   enable: true
   # Display the fold button when the number of words exceeds
   # 当超过多少字时显示折叠按钮
-  limit: 100
+  limit: 500
   # Whether to enable the copy button
   # 是否启用复制按钮
   copy: true
